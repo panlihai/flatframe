@@ -1,0 +1,405 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"   
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+
+<sqlMap namespace="sysUser">
+	<typeAlias alias="sqladapter" type="com.archie.model.mobile.SQLAdapter" />
+	<typeAlias alias="sysUser" type="com.archie.model.web.SysUser" />
+	<typeAlias alias="sysUserInfo" type="com.archie.model.web.SysUserInfo" />
+	<typeAlias alias="userInfo" type="com.archie.model.mobile.user.UserInfo" />
+	<typeAlias alias="authCode" type="com.archie.model.mobile.user.AuthCode" />
+	<typeAlias alias="userBean" type="com.archie.model.mobile.user.UserBean" />
+	<typeAlias alias="bookBean" type="com.archie.model.mobile.user.BookBean" />
+	<typeAlias alias="cartcarInfo" type="com.archie.model.mobile.user.CartcarInfo"/>
+	<typeAlias alias="orderCodeInfo" type="com.archie.model.mobile.user.OrderCodeInfo"/>
+	<typeAlias alias="cartcarBean" type="com.archie.model.mobile.user.CartcarBean"/>
+	<typeAlias alias="userIosInfo" type="com.archie.model.mobile.user.UserIosInfo" />
+	<!-- 用户管理列表 -->
+	<select id="selectSysUser" resultClass="sysUser" parameterClass="java.util.Map">
+		SELECT
+		su.mobilePhone,
+		suc.userId,
+		suc.cardCode,
+		suc.realName,
+		suc.userType,
+		suc.catalogName,
+		suc.channelName,
+		su.pwd,
+		suc.buyTime,
+		suc.provinceName,
+		suc.cityName,
+		suc.distName,
+		suc.displayOrder
+		FROM
+		sys_user su,sys_user_card suc
+		where
+		su.id=suc.userId
+		<isNotEmpty prepend="and" property="provinceName">
+			suc.provinceName like
+			#provinceName#
+		</isNotEmpty>
+		<isNotEmpty prepend="and" property="cityName">
+			suc.cityName like
+			#cityName#
+		</isNotEmpty>
+		<isNotEmpty prepend="and" property="distName">
+			suc.distName like
+			#distName#
+		</isNotEmpty>
+		<!-- <isNotEmpty prepend="and" property="startCode"> and suc.cardCode BETWEEN 
+			#startCode# and #endCode# </isNotEmpty> -->
+		limit #pageSize#
+		offset #startPos#
+	</select>
+	<!-- 用户详细列表查询 -->
+	<select id="selectSysUserDetail" resultClass="sysUser"
+		parameterClass="java.util.Map">
+		SELECT
+		su.mobilePhone,
+		suc.userId,
+		suc.cardCode,
+		suc.realName,
+		suc.userType,
+		suc.catalogName,
+		suc.channelName,
+		su.pwd,
+		suc.buyTime,
+		suc.provinceName,
+		suc.cityName,
+		suc.distName,
+		suc.displayOrder
+		FROM
+		sys_user su,sys_user_card suc
+		where
+		su.id=suc.userId
+		and suc.cardCode BETWEEN #startCode# and #endCode#
+		limit #pageSize#
+		offset
+		#startPos#
+	</select>
+	<!-- 用户管理列表统计 -->
+	<select id="selectCountSysUser" resultClass="int"
+		parameterClass="java.util.Map">
+		SELECT
+		count(1)
+		FROM
+		sys_user su,sys_user_card suc
+		where
+		su.id=suc.userId
+		<isNotEmpty prepend="and" property="provinceName">
+			suc.provinceName like
+			#provinceName#
+		</isNotEmpty>
+		<isNotEmpty prepend="and" property="cityName">
+			suc.cityName like
+			#cityName#
+		</isNotEmpty>
+		<isNotEmpty prepend="and" property="distName">
+			suc.distName like
+			#distName#
+		</isNotEmpty>
+		<!-- <isNotEmpty prepend="and" property="startCode"> and suc.cardCode BETWEEN 
+			#startCode# and #endCode# </isNotEmpty> -->
+	</select>
+	<!-- 查询用户详细统计 -->
+	<select id="selectCountSysUserDetail" resultClass="int"
+		parameterClass="java.util.Map">
+		SELECT
+		count(1)
+		FROM
+		sys_user su,sys_user_card suc
+		where
+		su.id=suc.userId
+		and suc.cardCode BETWEEN #startCode# and #endCode#
+	</select>
+
+
+	<!-- 根据手机号查询用户是否存在 -->
+	<select id="selectUserByPhone" parameterClass="userInfo"
+		resultClass="int">
+		select count(1) from sys_user where
+		mobilePhone=#mobilePhone#
+	</select>
+	<!-- 存储验证码并返回ID -->
+	<insert id="insertAuthCode" parameterClass="authCode">
+		insert into pre_authCode (authCode,mobilePhone,createdTime) VALUES
+		(#authCode#,#mobilePhone#,now())
+		<selectKey resultClass="int" keyProperty="authId">
+			select
+			last_insert_id() as authId
+		</selectKey>
+	</insert>
+	<!-- 获取验证码，过期时间 -->
+	<select id="selectAuthCode" parameterClass="userInfo"
+		resultClass="authCode">
+		select
+		authCode,mobilePhone,(UNIX_TIMESTAMP(NOW())-UNIX_TIMESTAMP(createdTime))/60
+		as difMinute from pre_authCode
+		where id=#authId#
+	</select>
+	 
+	<select id="selectMobile" parameterClass="java.util.Map"
+		resultClass="int">
+		select
+		count(1) from sys_user
+		where mobilePhone=#mobilePhone#
+	</select>
+
+	<!-- 用户注册信息写入 -->
+	<insert id="insertRegisterInfo" parameterClass="userInfo">
+		insert into
+		sys_user
+		(registerCiphertext,globalId,nickName,mobilePhone,createdTime,memberType)
+		values
+		(#registerCiphertext#,#globalId#,#nickName#,#mobilePhone#,now(),#memberType#)
+	</insert>
+	
+	<!-- 用户注册信息修改 -->
+	<insert id="updateRegisterInfo" parameterClass="userInfo">
+	    UPDATE sys_user SET  
+	    registerCiphertext=#registerCiphertext#,nickName=#nickName#,mobilePhone=#mobilePhone#,createdTime=now()
+	    WHERE id = #userId#
+	</insert>
+	<!-- 核对用户登录信息 -->
+	<select id="selectUserCountByCiphertext" parameterClass="userInfo"
+		resultClass="int">
+		select count(1) from sys_user where
+		registerCiphertext=#registerCiphertext#
+		<!-- 用户类型为后台用户登录使用，必传此字段为1，前端可传 0-->
+		<isNotEmpty prepend="and" property="memberType">
+			memberType=#memberType#
+  		 </isNotEmpty>
+	</select>
+
+	<!-- 查找用户信息 -->
+	<select id="selectUserInfo" parameterClass="userInfo"
+		resultClass="userBean">
+		select id as userId,
+		realName,
+		globalId,
+		nickName,
+		avatarPath,
+		sex,
+		mobilePhone,
+		isOnline
+		from sys_user where
+		1=1
+		<isNotEmpty prepend="and"  property="registerCiphertext">
+			registerCiphertext=#registerCiphertext#
+  		 </isNotEmpty>
+		<isNotEmpty prepend="and"  property="userId">
+			  id =  #userId#
+  		 </isNotEmpty>
+	</select>
+	<!-- 查找用户信息Map版本 -->
+	<select id="selectUserInfoMap"  parameterClass="java.util.Map"	 resultClass="userBean">
+		select id as userId,
+		realName,
+		globalId,
+		nickName,
+		avatarPath,
+		sex,
+		mobilePhone,
+		isOnline
+		from sys_user where
+		1=1
+		<isNotEmpty prepend="and"  property="registerCiphertext">
+			registerCiphertext=#registerCiphertext#
+  		 </isNotEmpty>
+		<isNotEmpty prepend="and"  property="userId">
+			  id =  #userId#
+  		 </isNotEmpty>
+	</select>
+
+	<!-- 修改用户登录信息 -->
+	<update id="updateUserPrefsession" parameterClass="userInfo">
+		update
+		sys_user
+		set isOnline = 1
+		where globalId=#globalId#
+	</update>
+
+	<!-- 用户退出 -->
+	<update id="updateUserExit" parameterClass="userInfo">
+		update sys_user set
+		isOnline = 0 where globalId=#globalId#
+	</update>
+	<!-- 修改，重置密码 -->
+	<update id="updatePassWord" parameterClass="userInfo">
+		update sys_user set
+		registerCiphertext = #registerCiphertext# where
+		mobilePhone=#mobilePhone#
+	</update>
+
+	<!-- 修改用户信息 -->
+	<update id="updateUserInfo" parameterClass="userInfo">
+		update sys_user set
+		nickName = #nickName# where id=#userId#
+	</update>
+
+	<!-- 我的图书 -->
+	<select id="selectMyBooks" parameterClass="userInfo"
+		resultClass="bookBean">
+		select c.catalogId,c.catalogName,c.buyTime,ca.price,ca.imagePath from
+		sys_user_card c LEFT JOIN com_catalog ca
+		ON c.catalogId = ca.id
+		where
+		c.userId=#userId# and c.state=1 order by c.createdTime
+		desc
+	</select>
+	<!-- 上传头像 -->
+	<update id="updateUserAvatar" parameterClass="userInfo">
+		update sys_user set
+		avatarPath=#avatarPath#
+		where id=#userId#
+	</update>
+
+	<!-- 查询没买的图书 -->
+	<select id="selectUnBuyBooks" parameterClass="userInfo"
+		resultClass="bookBean">
+		select id as catalogId,title as catalogName,price,imagePath from
+		com_catalog where id not in(select catalogId from sys_user_card where
+		userId=#userId# and state=1)
+	</select>
+	
+	<!--根据传递参数查询，购买过图书  -->
+	<select id="selectBuyBooks" parameterClass="cartcarInfo"
+		resultClass="bookBean">
+		SELECT c.id AS catalogId,c.title AS catalogName,c.price,s.userId FROM
+		com_catalog c,sys_user_card s WHERE
+		c.id = s.catalogId
+		AND s.state = 1  
+		AND userId= #userId# 
+		AND catalogId = #catalogId#
+	</select>
+	
+	<!-- 查询图书是否被用户添加购物车 -->
+	<select id="selectIsCartcar" parameterClass="cartcarInfo"
+		resultClass="int">
+		select count(1) from pre_cartcar where catalogId=#catalogId# and userId=#userId#
+	</select>
+	<!-- 添加购物车 -->
+	<insert id="insertCartcar" parameterClass="cartcarInfo">
+		insert into
+		pre_cartcar(userId,catalogId,createdTime) values
+		(#userId#,#catalogId#,now())
+		<selectKey resultClass="int" keyProperty="id">
+			select
+			last_insert_id() as id
+		</selectKey>
+	</insert>
+
+	<!-- 查询用户购物车列表 -->
+	<select id="selectCartcarList" parameterClass="cartcarInfo"
+		resultClass="cartcarBean">
+		SELECT p.id AS cartcarId,c.id AS
+		catalogId,c.title,c.price,DATE_FORMAT(p.createdTime,'%Y/%m/%d%H:%i')
+		AS createdTime, c.imagePath AS imagePath FROM
+		pre_cartcar p LEFT JOIN
+		com_catalog c ON
+		p.catalogId = c.id WHERE userId
+		= #userId#
+		ORDER BY
+		p.createdTime DESC
+		LIMIT #pageSize# offset #startPos#
+	</select>
+
+	<!-- 查询用户购物车的数量 -->
+	<select id="selectCartcarCount" parameterClass="cartcarInfo"
+		resultClass="int">
+		select count(1) from pre_cartcar where userId = #userId#
+	</select>
+	<!-- 按用户删除所有购物车数据 -->
+	<delete id="deleteAllCartcar" parameterClass="cartcarInfo">
+		delete from
+		pre_cartcar where userId = #userId#
+	</delete>
+	<!-- 按用户和数组图书ID 删除所有购物车数据 -->
+	<delete id="deleteCartcar" parameterClass="cartcarInfo">
+		delete from pre_cartcar
+		where userId=#userId# and catalogId in
+		<iterate property="catalogIdList" conjunction="," open="("
+			close=")">
+			#catalogIdList[]#
+		</iterate>
+	</delete>
+	
+	 <!-- 根据传递参数获取图书信息 -->
+	<select id="selectBookBean" parameterClass="cartcarInfo"
+	resultClass="bookBean">
+	 SELECT
+		com_catalog.id AS catalogId,
+		com_catalog.title AS catalogName,
+		com_catalog.price AS price
+		FROM
+		com_books ,
+		com_catalog ,
+		books_catalog
+		WHERE
+		com_books.id = books_catalog.booksId AND
+		com_catalog.id = books_catalog.catalogId AND
+		com_books.id = 1
+	<isNotEmpty prepend="and" property="catalogId">
+		 com_catalog.id = #catalogId#
+	</isNotEmpty>
+</select>
+	<!-- 按用户删除所有购物车数据 -->
+	<delete id="deleteAllOrder" parameterClass="orderCodeInfo">
+		delete from
+		sys_order where userId = #userId#
+	</delete>
+	<!-- 按用户和数组图书ID 删除所有购物车数据 -->
+	<delete id="deleteOrder" parameterClass="orderCodeInfo">
+		delete from sys_order
+		where userId=#userId# and orderCode in
+		<iterate property="orderCodeList" conjunction="," open="("
+			close=")">
+			#orderCodeList[]#
+		</iterate>
+	</delete>
+
+	<!--通过用户手机号码与加密信息查询用户信息-->
+	<select id="selectUserInfoByMobileAndPassword" parameterClass="userInfo" resultClass="userInfo">
+		select id as userId, realName, globalId, nickName, avatarPath, sex, mobilePhone, isOnline from sys_user where mobilePhone = #mobilePhone# and registerCiphertext = #registerCiphertext#
+	</select>
+<!-- 	临时账号插入 -->
+	<insert id="insertIOSRegisterInfo" parameterClass="java.util.Map">
+		insert into
+		sys_user
+		(globalId,createdTime,deviceId)
+		values
+		(#globalId#,now(),#deviceId#)
+	</insert>
+
+
+	<!--通过设备号查询用户信息-->
+	<select id="selectIosUserByDeviceId" parameterClass="java.util.Map" resultClass="userIosInfo">
+		select id AS userId  from sys_user where deviceId = #deviceId#
+	</select>
+	
+	<!-- 根据OpendId更新用户信息 -->
+	<update id="updateUserByOpenId" parameterClass="java.util.Map">
+		update sys_user set
+		openId = #openId# where id=#userId#
+	</update>
+	
+	<!--根据openId查询userId-->
+	<select id="selectWxUserByOpenId" parameterClass="java.util.Map" resultClass="userIosInfo">
+		select id AS userId  from sys_user where openId = #openId#
+	</select>
+		<!--效验openId是否数据库唯一  -->
+		<select id="selectOpenIdCount" parameterClass="java.util.Map"
+		resultClass="int">
+		select count(1) from sys_user where openId = #openId#
+	</select>
+	
+	<!-- 查询返回结果集数量-->
+	<select id="selectCountBySql" resultClass="long"
+		remapResults="true" parameterClass="sqladapter">
+		<![CDATA[
+           $sql$
+        ]]>
+	</select>
+</sqlMap>
